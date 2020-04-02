@@ -36,6 +36,8 @@
 
 #include <tf/tf.h>
 
+const float *_global_src;
+
 namespace gazebo
 {
 // Register this plugin with the simulator
@@ -187,7 +189,6 @@ void GazeboRosOpenniKinect::OnNewDepthFrame(const float *_image,
 {
   if (!this->initialized_ || this->height_ <=0 || this->width_ <=0)
     return;
-
   this->depth_sensor_update_time_ = this->parentSensor->LastMeasurementTime();
   if (this->parentSensor->IsActive())
   {
@@ -199,13 +200,10 @@ void GazeboRosOpenniKinect::OnNewDepthFrame(const float *_image,
     }
     else
     {
-      if (this->point_cloud_connect_count_ > 0)
-        this->FillPointdCloud(_image);
-
-      if (this->depth_image_connect_count_ > 0)
-        this->FillDepthImage(_image);
+      _global_src = _image;
     }
   }
+  
   else
   {
     if (this->point_cloud_connect_count_ > 0 ||
@@ -227,7 +225,7 @@ void GazeboRosOpenniKinect::OnNewImageFrame(const unsigned char *_image,
 
   //ROS_ERROR_NAMED("openni_kinect", "camera_ new frame %s %s",this->parentSensor_->Name().c_str(),this->frame_name_.c_str());
   this->sensor_update_time_ = this->parentSensor_->LastMeasurementTime();
-
+  
   if (this->parentSensor->IsActive())
   {
     if (this->point_cloud_connect_count_ <= 0 &&
@@ -240,6 +238,12 @@ void GazeboRosOpenniKinect::OnNewImageFrame(const unsigned char *_image,
     {
       if ((*this->image_connect_count_) > 0)
         this->PutCameraData(_image);
+
+      if (this->point_cloud_connect_count_ > 0)
+        this->FillPointdCloud(_global_src);
+
+      if (this->depth_image_connect_count_ > 0)
+        this->FillDepthImage(_global_src);
     }
   }
   else
@@ -435,11 +439,11 @@ void GazeboRosOpenniKinect::PublishCameraInfo()
   if (this->depth_info_connect_count_ > 0)
   {
     this->sensor_update_time_ = this->parentSensor_->LastMeasurementTime();
-#if GAZEBO_MAJOR_VERSION >= 8
-    common::Time cur_time = this->world_->SimTime();
-#else
-    common::Time cur_time = this->world_->GetSimTime();
-#endif
+    #if GAZEBO_MAJOR_VERSION >= 8
+        common::Time cur_time = this->world_->SimTime();
+    #else
+        common::Time cur_time = this->world_->GetSimTime();
+    #endif
     if (this->sensor_update_time_ - this->last_depth_image_camera_info_update_time_ >= this->update_period_)
     {
       this->PublishCameraInfo(this->depth_image_camera_info_pub_);
